@@ -44,14 +44,18 @@ def parser():
     accept.add_argument('--register', action='store_true')
     report = commands.add_parser('report')
     report.add_argument('--at')
+    study_export = commands.add_parser('study-export')
+    study_export.add_argument('name')
+    study_export.add_argument('path')
     backup = commands.add_parser('backup')
     backup.add_argument('path')
     commands.add_parser('check')
     commands.add_parser('rebuild')
     demo = commands.add_parser('demo')
     demo.add_argument('--fixture', required=True)
+    drill = commands.add_parser('study-drill')
+    drill.add_argument('--name', default='rollout')
     return result
-
 
 def read_json(path, maximum=64 * 1024 * 1024):
     file = Path(path)
@@ -86,6 +90,11 @@ def dispatch(store, args):
         return bundle.import_bundle(store, read_json(args.path), allow_register=args.register)
     if args.command == 'report':
         return inspection.health_report(store, instant=args.at)
+    if args.command == 'study-export':
+        return exporting.write_study(store, args.path, args.name)
+    if args.command == 'study-drill':
+        from registry_bridge.study import exercise_runner
+        return exercise_runner.run(store, name=args.name)
     if args.command == 'backup':
         return store.backup(args.path)
     if args.command == 'check':

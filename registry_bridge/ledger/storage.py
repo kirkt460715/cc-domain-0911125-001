@@ -64,6 +64,23 @@ CREATE TABLE IF NOT EXISTS export_jobs(
  export_id TEXT PRIMARY KEY, consumer TEXT NOT NULL, lower_position INTEGER NOT NULL,
  upper_position INTEGER NOT NULL, digest TEXT NOT NULL, row_count INTEGER NOT NULL,
  created_at TEXT NOT NULL, acknowledged_at TEXT);
+CREATE TABLE IF NOT EXISTS rollout_entries(
+ entry_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+ entry_id TEXT NOT NULL UNIQUE,
+ issuer TEXT NOT NULL REFERENCES issuers(issuer),
+ launched_at TEXT NOT NULL,
+ source TEXT NOT NULL,
+ note TEXT,
+ recorded_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS rollout_entries_issuer ON rollout_entries(issuer,entry_seq);
+CREATE TABLE IF NOT EXISTS rollout_studies(
+ name TEXT PRIMARY KEY,
+ definition TEXT NOT NULL,
+ definition_sha256 TEXT NOT NULL,
+ result TEXT NOT NULL,
+ result_sha256 TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ revision INTEGER NOT NULL DEFAULT 1);
 '''
 
 

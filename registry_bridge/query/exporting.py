@@ -108,6 +108,49 @@ def to_csv(value):
     return output.getvalue()
 
 
+def study_report(store, name):
+    """Render a stored study through the existing export path."""
+    from registry_bridge.study import studies
+    stored = studies.stored_result(store, name)
+    result = stored['result']
+    lines = ['# Rollout study ' + name, '',
+             'window: %s to %s' % (result['checks']['start'], result['checks']['end']),
+             'knowledge cutoff: %s' % result['checks']['knowledge_cutoff'],
+             'cohorts: %s' % result['checks']['cohorts'],
+             'base period: %s' % result['checks']['base_period'],
+             'control rule: %s' % result['checks']['control_rule'],
+             'weight: %s' % result['checks']['weight'],
+             'result sha256: %s' % stored['result_sha256'], '',
+             '| relative week | DiD | pointwise | simultaneous | cohorts |',
+             '| --- | --- | --- | --- | --- |']
+    for row in result['overall']:
+        interval = row.get('interval') or {}
+        simultaneous = row.get('simultaneous_interval') or {}
+        cohorts = ','.join(str(item['cohort_week']) for item in row['cohorts']) or '-'
+        lines.append('| %s | %s | [%s, %s] | [%s, %s] | %s |' % (
+            row['relative_week'], row['did'], interval.get('lower'), interval.get('upper'),
+            simultaneous.get('lower'), simultaneous.get('upper'), cohorts))
+    lines += ['', '## Naive pre/post comparison', '',
+              'naive change: %s' % result['comparison']['naive_change'],
+              'DiD post average: %s' % result['comparison']['did_post_average'],
+              'difference: %s' % result['comparison']['difference'], '',
+              '## Pre-treatment checks', '']
+    for item in result['cohort_pretrend']:
+        lines.append('cohort %s pre weeks %s breaching %s' % (
+            item['cohort_week'], item['relative_weeks'], item['breaching_relative_weeks']))
+    lines += ['', '## Warnings', '']
+    for warning in result['warnings']:
+        lines.append('- %s' % warning)
+    lines += ['', 'Unsupported cells stay as gaps; no extrapolation is applied.', '']
+    return '\n'.join(lines)
+
+
+def write_study(store, path, name):
+    content = study_report(store, name)
+    result = atomic_write(path, content)
+    return {**result, 'study': name}
+
+
 def write_snapshot(store, path, *, format='json', instant=None):
     value = snapshot(store, instant=instant)
     if format == 'json':

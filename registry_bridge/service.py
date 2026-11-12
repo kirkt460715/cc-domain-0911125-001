@@ -6,6 +6,7 @@ from registry_bridge.feeds.message import decode_json, integer, strict_object
 from registry_bridge.ledger import audit, issuers, leases
 from registry_bridge.query import catalog, consumer, exporting
 from registry_bridge.reconcile import cross_registry, rebuild, resolution
+from registry_bridge.study import studies
 
 
 class RegistryService:
@@ -58,6 +59,16 @@ class RegistryService:
             'snapshot.create': self.snapshot_create,
             'snapshot.verify': self.snapshot_verify,
             'snapshot.compare': self.snapshot_compare,
+            'rollout.record': self.rollout_record,
+            'rollout.list': self.rollout_list,
+            'study.create': self.study_create,
+            'study.get': self.study_get,
+            'study.list': self.study_list,
+            'study.replay': self.study_replay,
+            'study.verify': self.study_verify,
+            'study.cohort': self.study_cohort,
+            'study.week': self.study_week,
+            'study.issuer': self.study_issuer,
         }
 
     def call(self, operation, parameters=None):
@@ -259,6 +270,47 @@ class RegistryService:
     def snapshot_compare(self, p):
         self.fields(p, ('left', 'right'))
         return exporting.compare_snapshots(**p)
+
+    def rollout_record(self, p):
+        self.fields(p, ('issuer', 'launched_at', 'source'), ('note', 'actor'))
+        return studies.record_entry(self.store, **p)
+
+    def rollout_list(self, p):
+        self.fields(p, (), ('issuer',))
+        return studies.launch_entries(self.store, **p)
+
+    def study_create(self, p):
+        self.fields(p, ('name', 'start', 'end', 'knowledge_cutoff'), ('options', 'actor'))
+        return studies.create(self.store, **p)
+
+    def study_get(self, p):
+        self.fields(p, ('name',))
+        return studies.get(self.store, **p)
+
+    def study_list(self, p):
+        self.fields(p)
+        return studies.listing(self.store)
+
+    def study_replay(self, p):
+        self.fields(p, ('name',))
+        return studies.replay(self.store, **p)
+
+    def study_verify(self, p):
+        self.fields(p, ('name',))
+        return studies.verify(self.store, **p)
+
+    def study_cohort(self, p):
+        self.fields(p, ('name', 'cohort_week'))
+        return studies.cohort_layer(self.store, studies.get(self.store, p['name']), p['cohort_week'])
+
+    def study_week(self, p):
+        self.fields(p, ('name', 'relative_week'), ('cohort_week',))
+        return studies.week_layer(self.store, studies.get(self.store, p['name']),
+                                  p['relative_week'], cohort_week=p.get('cohort_week'))
+
+    def study_issuer(self, p):
+        self.fields(p, ('name', 'issuer'))
+        return studies.issuer_layer(self.store, studies.get(self.store, p['name']), p['issuer'])
 
     def execute_batch(self, requests, *, atomic=True):
         if not isinstance(requests, list) or len(requests) > 1000:
